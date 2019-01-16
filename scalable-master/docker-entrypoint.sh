@@ -82,6 +82,13 @@ _get_config() {
 	# match "datadir      /some/path with/spaces in/it here" but not "--xyz=abc\n     datadir (xyz)"
 }
 
+# change Variable based on the content
+perl -i -pe "s/\{\{uuid\}\}/$GROUP_UUID/g" /etc/mysql/conf.d/replication.cnf
+perl -i -pe "s/\{\{master\}\}/$MYSQL_GROUP_REPLICATION_MASTER_SERVICE_HOST/g" /etc/mysql/conf.d/replication.cnf
+perl -i -pe "s/\{\{scalable-master\}\}/$MYSQL_GROUP_REPLICATION_SCALABLE_MASTER_SERVICE_HOST/g" /etc/mysql/conf.d/replication.cnf
+perl -i -pe "s/\{\{random\}\}/$((100 + RANDOM % 999))/g" /etc/mysql/conf.d/replication.cnf
+perl -i -pe "s/\{\{myself\}\}/$(hostname --all-ip-addresses | head -n 1 | xargs)/g" /etc/mysql/conf.d/replication.cnf
+
 # allow the container to be started with `--user`
 if [ "$1" = 'mysqld' -a -z "$wantHelp" -a "$(id -u)" = '0' ]; then
 	_check_config "$@"
@@ -191,6 +198,22 @@ if [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 
 			echo 'FLUSH PRIVILEGES ;' | "${mysql[@]}"
 		fi
+
+			"${mysql[@]}" <<-EOSQL
+			-- Create User
+			SET @@SESSION.SQL_LOG_BIN=0;
+			SET SQL_LOG_BIN=0 ;
+			CREATE USER '$MYSQL_REPLICATION_USERNAME'@'%' IDENTIFIED BY '$MYSQL_REPLICATION_PASSWORD' REQUIRE SSL ;
+			GRANT REPLICATION SLAVE ON *.* TO '$MYSQL_REPLICATION_USERNAME'@'%' ;
+			FLUSH PRIVILEGES ;
+			SET SQL_LOG_BIN=1 ;
+
+			-- Create Replication
+			CHANGE MASTER TO MASTER_USER='$MYSQL_REPLICATION_USERNAME', MASTER_PASSWORD='$MYSQL_REPLICATION_PASSWORD' FOR CHANNEL 'group_replication_recovery' ;
+
+			INSTALL PLUGIN group_replication SONAME 'group_replication.so' ;
+			-- START GROUP_REPLICATION ;
+		EOSQL
 
 		echo
 		ls /docker-entrypoint-initdb.d/ > /dev/null
