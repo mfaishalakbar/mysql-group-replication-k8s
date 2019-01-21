@@ -20,6 +20,10 @@ loose-group_replication_group_name = "{{uuid}}"
 loose-group_replication_ip_whitelist = "{{myself}},10.0.0.0/8"
 loose-group_replication_group_seeds = "{{master}}:33061,{{scalable-master}}:33061"
 
+# Add Autostart 
+# loose-group_replication_bootstrap_group = on
+# loose-group_replication_start_on_boot = on
+
 # Single or Multi-primary mode? Uncomment these two lines
 # for multi-primary mode, where any host can accept writes
 loose-group_replication_single_primary_mode = OFF

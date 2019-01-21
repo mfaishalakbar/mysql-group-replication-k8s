@@ -82,12 +82,26 @@ _get_config() {
 	# match "datadir      /some/path with/spaces in/it here" but not "--xyz=abc\n     datadir (xyz)"
 }
 
-# change Variable based on the content
-perl -i -pe "s/\{\{uuid\}\}/$GROUP_UUID/g" /etc/mysql/conf.d/replication.cnf
-perl -i -pe "s/\{\{master\}\}/$MYSQL_GROUP_REPLICATION_MASTER_SERVICE_HOST/g" /etc/mysql/conf.d/replication.cnf
-perl -i -pe "s/\{\{scalable-master\}\}/$MYSQL_GROUP_REPLICATION_SCALABLE_MASTER_SERVICE_HOST/g" /etc/mysql/conf.d/replication.cnf
-perl -i -pe "s/\{\{random\}\}/$((100 + RANDOM % 999))/g" /etc/mysql/conf.d/replication.cnf
-perl -i -pe "s/\{\{myself\}\}/$(hostname --all-ip-addresses | head -n 1 | xargs)/g" /etc/mysql/conf.d/replication.cnf
+_change_variable() {
+	echo "Changing File Variable Safely as root First..."
+	chown -R mysql:users /etc/mysql/conf.d/
+
+	perl -i -pe "s/\{\{uuid\}\}/$GROUP_UUID/g" /etc/mysql/conf.d/replication.cnf
+	perl -i -pe "s/\{\{master\}\}/$MYSQL_GROUP_REPLICATION_MASTER_SERVICE_HOST/g" /etc/mysql/conf.d/replication.cnf
+	perl -i -pe "s/\{\{scalable-master\}\}/$MYSQL_GROUP_REPLICATION_SCALABLE_MASTER_SERVICE_HOST/g" /etc/mysql/conf.d/replication.cnf
+	perl -i -pe "s/\{\{random\}\}/$((100 + RANDOM % 999))/g" /etc/mysql/conf.d/replication.cnf
+	perl -i -pe "s/\{\{myself\}\}/$(hostname --all-ip-addresses | head -n 1 | xargs)/g" /etc/mysql/conf.d/replication.cnf
+
+	chown -R mysql:users /etc/mysql/conf.d/replication.cnf
+
+}
+
+
+if [ $(id -u) = 0 ]; then
+	_change_variable
+else
+	echo "Don't Change File Variable since i'm no longer root anymore..."
+fi
 
 # allow the container to be started with `--user`
 if [ "$1" = 'mysqld' -a -z "$wantHelp" -a "$(id -u)" = '0' ]; then
@@ -160,7 +174,7 @@ if [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 			# no, we don't care if read finds a terminating character in this heredoc
 			# https://unix.stackexchange.com/questions/265149/why-is-set-o-errexit-breaking-this-read-heredoc-expression/265151#265151
 			read -r -d '' rootCreate <<-EOSQL || true
-				CREATE USER 'root'@'${MYSQL_ROOT_HOST}' IDENTIFIED BY '${MYSQL_ROOT_PASSWORD}' ;
+				CREATE USER 'root'@'${MYSQL_ROOT_HOST}' IDENTIFIED WITH mysql_native_password BY '${MYSQL_ROOT_PASSWORD}' ;
 				GRANT ALL ON *.* TO 'root'@'${MYSQL_ROOT_HOST}' WITH GRANT OPTION ;
 			EOSQL
 		fi
@@ -170,7 +184,7 @@ if [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 			--  or products like mysql-fabric won't work
 			SET @@SESSION.SQL_LOG_BIN=0;
 
-			ALTER USER 'root'@'localhost' IDENTIFIED BY '${MYSQL_ROOT_PASSWORD}' ;
+			ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY '${MYSQL_ROOT_PASSWORD}' ;
 			GRANT ALL ON *.* TO 'root'@'localhost' WITH GRANT OPTION ;
 			${rootCreate}
 			DROP DATABASE IF EXISTS test ;
@@ -233,9 +247,16 @@ if [ "$1" = 'mysqld' -a -z "$wantHelp" ]; then
 		fi
 
 		echo
+		echo 'Writing Extra Configurations...'
+		echo 'loose-group_replication_bootstrap_group = off' >> /etc/mysql/conf.d/replication.cnf
+		echo 'loose-group_replication_start_on_boot = on' >> /etc/mysql/conf.d/replication.cnf
+
+
+		echo
 		echo 'MySQL init process done. Ready for start up.'
 		echo
 	fi
+
 fi
 
 exec "$@"
