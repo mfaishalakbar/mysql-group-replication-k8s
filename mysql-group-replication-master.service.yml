@@ -14,5 +14,5 @@ spec:
     targetPort: 3306
   - name: mysql-replication
     protocol: TCP
-    port: 33061
-    targetPort: 33061
+    port: 3406
+    targetPort: 3406

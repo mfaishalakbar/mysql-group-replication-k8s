@@ -18,7 +18,7 @@ loose-group_replication_recovery_use_ssl = 1
 # Shared replication group configuration
 loose-group_replication_group_name = "{{uuid}}"
 loose-group_replication_ip_whitelist = "{{myself}},10.0.0.0/8"
-loose-group_replication_group_seeds = "{{master}}:33061,{{scalable-master}}:33061"
+loose-group_replication_group_seeds = "{{master}}:3406,{{scalable-master}}:3407"
 
 # Add Autostart 
 # loose-group_replication_bootstrap_group = on
@@ -33,4 +33,4 @@ loose-group_replication_enforce_update_everywhere_checks = ON
 server_id = 1
 bind-address = "{{myself}}"
 report_host = "{{master}}"
-loose-group_replication_local_address = "{{myself}}:33061"
+loose-group_replication_local_address = "{{myself}}:3406"
