@@ -31,6 +31,6 @@ loose-group_replication_enforce_update_everywhere_checks = ON
 
 # Host specific replication configuration
 server_id = 1
-bind-address = "{{myself}}"
+bind-address = "0.0.0.0"
 report_host = "{{master}}"
-loose-group_replication_local_address = "{{myself}}:3406"
+loose-group_replication_local_address = "0.0.0.0:3406"
